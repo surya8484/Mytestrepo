@@ -1,0 +1,120 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use App\Models\Curl;
+
+class AuthAPI extends Model
+{
+    public static $MODULE_DSS = 'dss';
+    public static $MODULE_DSWC = 'dswc';
+    public static $MODULE_PE = 'pe';
+    public static $MODULE_SDK = 'sdk';
+    public static $MODULE_TSGUI = 'tsgui';
+    public static $MODULE_AUTH = 'auth';
+    private static $authServer;
+
+    public static function registerWithAuthServer($module, $moduleId) {
+        $authServer = self::getAuthServer();
+        $registrationObj = self::getRegistrationDTO($module, $moduleId);
+        return self::register($authServer, $registrationObj);
+    }
+
+    public static function register($authServer, RegistrationDTO $registrationObj) {
+        $timestamp = time() * 1000;
+        $accessId = $authServer->accessKey;
+        $signature = self::calculateSignature($accessId, $timestamp, $authServer->passKey);
+        $url = 'https://' . $authServer->ip . ':' . $authServer->port.'/api/register?signature=' . $signature . '&timestamp=' . $timestamp . '&accessId=' . $accessId;
+        $response = json_decode(Curl::request($url, 'POST', $registrationObj->getSerialised()));
+        if($response->success) {
+            $fileData = [];
+            foreach($response->data as $data) {
+                $fileData[$data->module] = $data;
+                session()->put($data->module, $data);
+            }
+            file_put_contents(config_path() . '/authserver.response', json_encode($fileData));
+        }
+        return $response->success;
+    }
+
+    public static function calculateSignature($accessId, $timestamp, $passKey) {
+        error_log('regObjString '.$accessId);
+        error_log('timestamp '.$timestamp);
+        error_log('passKey '.$passKey);
+        $regObjString='timestamp='.$timestamp.'&accessId='.$accessId;
+        return self::generateSignature($passKey, $regObjString . '::' . $timestamp);
+    }
+
+    public static function generateSignature($passkey, $data) {
+        return bin2hex(hash_hmac('sha256', $data, $passkey, true));
+    }
+
+    public static function getRegistrationDTO($module, $moduleId) {
+        $dto = new RegistrationDTO();
+        $dto->setIp(request()->ip());
+        $dto->setPort(80);
+        $dto->setModule($module);
+        $dto->setModuleId($moduleId);
+        return $dto;
+    }
+
+    public static function getAuthServer() {
+        if(self::$authServer == null)  {
+            self::$authServer = json_decode(file_get_contents(config_path().'/authserver.config'));
+        }
+        return self::$authServer;
+    }
+
+    public static function getSignatureData($module) {
+        if(session($module)) {
+            $timestamp = time() * 1000;
+            error_log(print_r(session($module), true));
+            $signature = self::calculateSignature(session($module)->accessKey, $timestamp, session($module)->passKey);
+            return 'signature=' . $signature . '&accessId=' . session($module)->accessKey . '&timestamp=' . $timestamp;
+        }
+        return '';
+    }
+}
+
+class RegistrationDTO {
+    private $ip;
+    private $port;
+    private $module;
+    private $moduleId;
+
+    public function getIp() {
+        return $this->ip;
+    }
+    public function setIp($ip) {
+        $this->ip = $ip;
+    }
+    public function getPort() {
+        return $this->port;
+    }
+    public function setPort($port) {
+        $this->port = $port;
+    }
+    public function getModule() {
+        return $this->module;
+    }
+    public function setModule($module) {
+        $this->module = $module;
+    }
+    public function getModuleId() {
+        return $this->moduleId;
+    }
+    public function setModuleId($moduleId) {
+        $this->moduleId = $moduleId;
+    }
+
+    public function getSerialised() {
+        return json_encode([
+            'ip' => $this->getIp(),
+            'port'  => $this->getPort(),
+            'module' => $this->getModule(),
+            'moduleId' => $this->getModuleId()
+        ]);
+    }
+}
+
