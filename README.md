@@ -1,15 +1,10 @@
 # Mytestrepo
 #This repostory contains all test and practice files I used for OOPS in PHP, these are my practice files.
-#class.Address.inc
-#class.AddressBusiness.inc
-#class.AddressDisplay.inc
-#class.AddressDisplayFull.inc
-#class.AddressDisplayNoCountry.inc
-#class.AddressDisplayPark.inc
-#class.AddressPark.inc
-#class.AddressResidence.inc
-#class.Database.inc
-#class.Model.inc
+#AuthorisationAPI.php
+#It is used for authorisation of a cloud application, it is considering if and only if all the servers are up and running
+
+#class.Address.php
+#Its part of enhancement maintaining variety of addresses.
 
 #Sample.php
 #This Sample.php is one of the files which I worked for my university website, used Javascript, PHP for this page.
